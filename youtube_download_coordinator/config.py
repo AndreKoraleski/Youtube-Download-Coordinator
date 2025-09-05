@@ -1,0 +1,28 @@
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass
+class Config:
+    """
+    Configuration settings for the Download Coordinator.
+    """
+    # --- Core Settings ---
+    credentials_file: str
+    spreadsheet_id: str
+    sources_file_path: Optional[str] = None
+
+    # --- Worksheet Names ---
+    sources_worksheet_name: str = 'Sources'
+    video_tasks_worksheet_name: str = 'Video Tasks'
+    dead_letter_worksheet_name: str = 'Dead-Letter Queue'
+
+    # --- Status Constants ---
+    STATUS_PENDING: str = 'pending'
+    STATUS_IN_PROGRESS: str = 'in-progress'
+    STATUS_DONE: str = 'done'
+    STATUS_ERROR: str = 'error'
+
+    # --- Distributed System Tuning ---
+    claim_jitter_seconds: int = 5
+    stalled_task_timeout_minutes: int = 60
+    max_retries: int = 3
