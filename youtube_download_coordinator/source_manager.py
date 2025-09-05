@@ -5,8 +5,6 @@ from typing import List, Union
 
 import yt_dlp
 
-
-from .config import config
 from .sheet_client import SheetClient
 from .source import Source
 from .video_task import VideoTask
@@ -22,14 +20,12 @@ class SourceManager:
     Manages the process of expanding a YouTube source (playlist or channel)
     into individual video tasks on the spreadsheet.
     """
-
     def __init__(self, sheet_client: SheetClient):
         """
         Initializes the SourceManager with a SheetClient instance.
         """
         
         self.client = sheet_client
-
 
     def get_next_source_to_expand(self) -> Union[Source, None]:
         """
@@ -39,7 +35,7 @@ class SourceManager:
         conditions in a distributed environment.
         """
 
-        time.sleep(random.uniform(0, config.CLAIM_JITTER_SECONDS))
+        time.sleep(random.uniform(0, self.client.config.claim_jitter_seconds))
 
         source_data = self.client.find_next_pending_source()
 
@@ -55,7 +51,7 @@ class SourceManager:
                 worksheet=self.client.sources_worksheet,
                 row_id=source_id,
                 updates={
-                    'Status': config.STATUS_IN_PROGRESS,
+                    'Status': self.client.config.STATUS_IN_PROGRESS,
                     'ClaimedBy': hostname,
                     'ClaimedAt': timestamp
                 }
@@ -78,12 +74,6 @@ class SourceManager:
     def expand_source(self, source: Source) -> List[VideoTask]:
         """
         Uses yt-dlp to extract all video URLs and their duration from a given source.
-
-        Args:
-            source: A Source object representing the URL to expand.
-
-        Returns:
-            A list of VideoTask objects generated from the source's videos.
         """
         video_tasks = []
 
@@ -106,7 +96,7 @@ class SourceManager:
                                 id=0,
                                 source_id=source.id,
                                 url=entry.get('webpage_url'),
-                                status=config.STATUS_PENDING,
+                                status=self.client.config.STATUS_PENDING,
                                 accent=source.accent,
                                 task_type=source.source_type,
                                 duration=entry.get('duration'),
@@ -118,7 +108,7 @@ class SourceManager:
                         id=0,
                         source_id=source.id,
                         url=info_dict.get('webpage_url'),
-                        status=config.STATUS_PENDING,
+                        status=self.client.config.STATUS_PENDING,
                         accent=source.accent,
                         task_type=source.source_type,
                         duration=info_dict.get('duration'),
@@ -173,7 +163,7 @@ class SourceManager:
             self.client.update_row(
                 worksheet=self.client.sources_worksheet,
                 row_id=source_id,
-                updates={'Status': config.STATUS_DONE}
+                updates={'Status': self.client.config.STATUS_DONE}
             )
             logger.info(f"Source ID {source_id} marked as done.")
         
@@ -183,16 +173,13 @@ class SourceManager:
     def mark_source_as_error(self, source_id: int):
         """
         Updates the status of a source to 'error' if expansion fails.
-
-        Args:
-            source_id: The ID of the source to update.
         """
         
         try:
             self.client.update_row(
                 worksheet=self.client.sources_worksheet,
                 row_id=source_id,
-                updates={'Status': config.STATUS_ERROR}
+                updates={'Status': self.client.config.STATUS_ERROR}
             )
             logger.info(f"Source ID {source_id} marked as error.")
         

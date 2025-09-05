@@ -3,7 +3,6 @@ import random
 import time
 from typing import Dict, Union
 
-from config import config
 from sheet_client import SheetClient
 from video_task import VideoTask
 from utils.time_utils import get_current_timestamp
@@ -42,8 +41,8 @@ class TaskManager:
         Returns:
             A VideoTask object if a task is successfully claimed, otherwise None.
         """
-        
-        time.sleep(random.uniform(0, config.CLAIM_JITTER_SECONDS))
+
+        time.sleep(random.uniform(0, self.client.config.claim_jitter_seconds))
 
         stalled_task_data = self._find_stalled_task()
         
@@ -51,7 +50,7 @@ class TaskManager:
             self.client.update_row(
                 worksheet=self.client.video_tasks_worksheet,
                 row_id=int(stalled_task_data.get('ID')),
-                updates={'Status': config.STATUS_PENDING}
+                updates={'Status': self.client.config.STATUS_PENDING}
             )
             logger.info(f"Reset stalled task with ID {stalled_task_data.get('ID')} to 'pending'.")
             time.sleep(2)
@@ -70,7 +69,7 @@ class TaskManager:
                 worksheet=self.client.video_tasks_worksheet,
                 row_id=task_id,
                 updates={
-                    'Status': config.STATUS_IN_PROGRESS,
+                    'Status': self.client.config.STATUS_IN_PROGRESS,
                     'ClaimedBy': hostname,
                     'ClaimedAt': timestamp
                 }
@@ -101,10 +100,10 @@ class TaskManager:
 
         records = self.client.get_video_tasks()
         current_time_epoch = time.time()
-        timeout_seconds = config.STALLED_TASK_TIMEOUT_MINUTES * 60
+        timeout_seconds = self.client.config.stalled_task_timeout_minutes * 60
 
         for record in records:
-            if record.get('Status') == config.STATUS_IN_PROGRESS:
+            if record.get('Status') == self.client.config.STATUS_IN_PROGRESS:
                 claimed_at_str = record.get('ClaimedAt')
                 if claimed_at_str:
                     claimed_at_epoch = time.mktime(time.strptime(claimed_at_str, "%Y-%m-%d %H:%M:%S"))
@@ -125,7 +124,7 @@ class TaskManager:
             self.client.update_row(
                 worksheet=self.client.video_tasks_worksheet,
                 row_id=task.id,
-                updates={'Status': config.STATUS_DONE}
+                updates={'Status': self.client.config.STATUS_DONE}
             )
             logger.info(f"Task ID {task.id} marked as 'Done'.")
 
@@ -145,7 +144,7 @@ class TaskManager:
             task: The VideoTask object to update.
         """
 
-        if task.retry_count >= config.MAX_RETRIES:
+        if task.retry_count >= self.client.config.max_retries:
             try:
                 self.client.move_row_to_dead_letter(task.id)
 
@@ -159,7 +158,7 @@ class TaskManager:
                     worksheet=self.client.video_tasks_worksheet,
                     row_id=task.id,
                     updates={
-                        'Status': config.STATUS_PENDING,
+                        'Status': self.client.config.STATUS_PENDING,
                         'RetryCount': new_retry_count
                     }
                 )
