@@ -93,7 +93,7 @@ class SourceManager:
                     for entry in info_dict['entries']:
                         if entry and entry.get('webpage_url'):
                             task = VideoTask(
-                                id=0,
+                                id='',
                                 source_id=source.id,
                                 url=entry.get('webpage_url'),
                                 status=self.client.config.STATUS_PENDING,

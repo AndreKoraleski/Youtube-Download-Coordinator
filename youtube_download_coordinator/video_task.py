@@ -12,8 +12,8 @@ class VideoTask:
     compared to using raw dictionaries.
     """
 
-    id: int
-    source_id: int
+    id: str
+    source_id: str
     url: str
     status: str
     claimed_by: Optional[str] = None
@@ -31,8 +31,8 @@ class VideoTask:
         """
 
         return cls(
-            id=int(data.get('ID', 0)),
-            source_id=int(data.get('SourceID', 0)),
+            id=data.get('ID', ''),
+            source_id=data.get('SourceID', ''),
             url=data.get('URL', ''),
             status=data.get('Status', 'pending'),
             claimed_by=data.get('ClaimedBy'),

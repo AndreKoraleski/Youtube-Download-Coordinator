@@ -11,7 +11,7 @@ class Source:
     Google Sheets document, including URLs and processing status.
     """
     
-    id: int
+    id: str
     url: str
     status: str
     claimed_by: Optional[str] = None
@@ -27,7 +27,7 @@ class Source:
         """
 
         return cls(
-            id=int(data.get('ID', 0)),
+            id=data.get('ID', ''),
             url=data.get('URL', ''),
             status=data.get('Status', 'pending'),
             claimed_by=data.get('ClaimedBy'),
