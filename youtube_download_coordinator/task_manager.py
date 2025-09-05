@@ -3,10 +3,10 @@ import random
 import time
 from typing import Dict, Union
 
-from sheet_client import SheetClient
-from video_task import VideoTask
-from utils.time_utils import get_current_timestamp
-from utils.system_utils import get_machine_hostname
+from .sheet_client import SheetClient
+from .video_task import VideoTask
+from .utils.time_utils import get_current_timestamp
+from .utils.system_utils import get_machine_hostname
 
 
 logger = logging.getLogger(__name__)
