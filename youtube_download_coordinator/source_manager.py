@@ -97,20 +97,17 @@ class SourceManager:
                                 source_id=source.id,
                                 url=entry.get('webpage_url'),
                                 status=self.client.config.STATUS_PENDING,
-                                accent=source.accent,
-                                task_type=source.source_type,
                                 duration=entry.get('duration'),
                                 retry_count=0
                             )
                             video_tasks.append(task)
+
                 else:
                     task = VideoTask(
                         id=0,
                         source_id=source.id,
                         url=info_dict.get('webpage_url'),
                         status=self.client.config.STATUS_PENDING,
-                        accent=source.accent,
-                        task_type=source.source_type,
                         duration=info_dict.get('duration'),
                         retry_count=0
                     )
@@ -118,14 +115,16 @@ class SourceManager:
                     
             return video_tasks
         
-        except yt_dlp.DownloadError as e:
-            logger.error(f"Error expanding source {source.url}: {e}")
-            return []
+        except Exception as e:
+            error_msg = f"yt-dlp error: {str(e)}"
+            logger.error(f"Error expanding source {source.url}: {error_msg}")
+            raise Exception(error_msg)
         
 
     def add_video_tasks_to_sheet(self, tasks: List[VideoTask]):
         """
         Adds a list of new VideoTask objects as new rows in the video tasks worksheet.
+        Note: Tasks now have fewer columns and don't duplicate source information.
         """
         
         if not tasks:
@@ -135,16 +134,15 @@ class SourceManager:
         new_rows = []
         for task in tasks:
             row = [
-                task.id,
-                task.source_id,
-                task.url,
-                task.status,
-                task.claimed_by,
-                task.claimed_at,
-                task.accent,
-                task.task_type,
-                task.duration,
-                task.retry_count
+                task.id,           # ID (auto-generated)
+                task.source_id,    # SourceID
+                task.url,          # URL
+                task.status,       # Status
+                task.claimed_by or '',    # ClaimedBy
+                task.claimed_at or '',    # ClaimedAt
+                task.duration or '',      # Duration
+                task.retry_count,         # RetryCount
+                task.error_message or ''  # ErrorMessage
             ]
             new_rows.append(row)
 
@@ -154,6 +152,7 @@ class SourceManager:
         except Exception as e:
             logger.error(f"Failed to add video tasks to the sheet: {e}")
     
+
     def mark_source_as_done(self, source_id: int):
         """
         Updates the status of a source to 'done' after successful expansion.
@@ -170,18 +169,41 @@ class SourceManager:
         except Exception as e:
             logger.error(f"Failed to mark source ID {source_id} as done: {e}")
 
-    def mark_source_as_error(self, source_id: int):
+
+    def mark_source_as_error(self, source_id: int, error_message: str = None):
         """
         Updates the status of a source to 'error' if expansion fails.
+        If max retries exceeded, moves to dead letter queue.
         """
         
         try:
+            
+            updates = {
+                'Status': self.client.config.STATUS_ERROR,
+                'ErrorMessage': error_message or 'Unknown error occurred'
+            }
+            
             self.client.update_row(
                 worksheet=self.client.sources_worksheet,
                 row_id=source_id,
-                updates={'Status': self.client.config.STATUS_ERROR}
+                updates=updates
             )
-            logger.info(f"Source ID {source_id} marked as error.")
+            
+            self.client.move_source_to_dead_letter(source_id)
+            logger.info(f"Source ID {source_id} marked as error and moved to dead letter queue.")
         
         except Exception as e:
             logger.error(f"Failed to mark source ID {source_id} as error: {e}")
+
+
+    def handle_source_error(self, source: Source, error: Exception):
+        """
+        Handle source expansion errors with proper error messages.
+        """
+        
+        error_msg = str(error)
+        if len(error_msg) > 500:  # Limit error message length for spreadsheet
+            error_msg = error_msg[:497] + "..."
+        
+        logger.error(f"Source expansion failed for ID {source.id}: {error_msg}")
+        self.mark_source_as_error(source.id, error_msg)

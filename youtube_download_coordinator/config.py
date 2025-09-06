@@ -10,12 +10,13 @@ class Config:
     credentials_file: str
     spreadsheet_id: str
     sources_file_path: Optional[str] = None
-    api_wait_seconds: float = 6.0
+    api_wait_seconds: float = 2.5
 
     # --- Worksheet Names ---
     sources_worksheet_name: str = 'Sources'
     video_tasks_worksheet_name: str = 'Video Tasks'
-    dead_letter_worksheet_name: str = 'Dead-Letter Queue'
+    dead_letter_sources_worksheet_name: str = 'Dead-Letter Sources'
+    dead_letter_tasks_worksheet_name: str = 'Dead-Letter Tasks'
 
     # --- Status Constants ---
     STATUS_PENDING: str = 'pending'

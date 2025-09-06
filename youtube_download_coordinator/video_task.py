@@ -8,8 +8,8 @@ class VideoTask:
     A data class to represent a single video task.
 
     This class provides a structured way to handle video information retrieved from
-    the Google Sheets document, making the code cleaner and less prone to errors
-    compared to using raw dictionaries.
+    the Google Sheets document. Tasks now have minimal columns and reference the
+    source via SourceID for additional metadata.
     """
 
     id: str
@@ -18,10 +18,9 @@ class VideoTask:
     status: str
     claimed_by: Optional[str] = None
     claimed_at: Optional[str] = None
-    accent: Optional[str] = None
-    task_type: Optional[str] = None
     duration: Optional[int] = None
     retry_count: int = 0
+    error_message: Optional[str] = None
 
 
     @classmethod
@@ -30,6 +29,19 @@ class VideoTask:
         Creates a VideoTask instance from a dictionary row retrieved from gspread.
         """
 
+        duration = data.get('Duration')
+
+        if duration and str(duration).strip():
+
+            try:
+                duration = int(float(duration))
+
+            except (ValueError, TypeError):
+                duration = None
+                
+        else:
+            duration = None
+
         return cls(
             id=data.get('ID', ''),
             source_id=data.get('SourceID', ''),
@@ -37,8 +49,7 @@ class VideoTask:
             status=data.get('Status', 'pending'),
             claimed_by=data.get('ClaimedBy'),
             claimed_at=data.get('ClaimedAt'),
-            accent=data.get('Accent'),
-            task_type=data.get('Type'),
-            duration=data.get('Duration'),
-            retry_count=int(data.get('RetryCount', 0))
+            duration=duration,
+            retry_count=int(data.get('RetryCount', 0)),
+            error_message=data.get('ErrorMessage')
         )

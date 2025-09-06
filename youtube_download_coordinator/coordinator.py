@@ -78,9 +78,9 @@ class Coordinator:
             self.source_manager.mark_source_as_done(source.id)
             logger.info("Source ID %s processed successfully.", source.id)
 
-        except Exception:
+        except Exception as e:
             logger.exception("Error during source expansion for source ID %s.", source.id)
-            self.source_manager.mark_source_as_error(source.id)
+            self.source_manager.handle_source_error(source, e)
 
 
     def process_next_task(self, processing_function: Callable[[str], None]) -> bool:
@@ -107,8 +107,9 @@ class Coordinator:
             processing_function(task.url)
             logger.info("Processing function successfully completed for task ID %s.", task.id)
             self.task_manager.mark_task_as_done(task)
-        except Exception:
+        
+        except Exception as e:
             logger.exception("Processing function failed for task ID %s.", task.id)
-            self.task_manager.mark_task_as_error(task)
+            self.task_manager.handle_task_error(task, e)
 
         return True

@@ -12,9 +12,13 @@ def import_sources_from_file(file_path: str, client: SheetClient):
     """
     Reads a text file to add new sources to the Google Sheet.
 
-    This function parses a file where each line should be in the format
-    URL|Accent|Type, checks for duplicates, and adds only new sources
-    to the 'Sources' sheet.
+    This function parses a file where each line should be in the format:
+    URL|Accent|Type|SpeakerGender|MultiSpeakerPercentage
+    
+    Or the simplified format:
+    URL|Accent|Type
+    
+    It checks for duplicates and adds only new sources to the 'Sources' sheet.
     """
 
     try:
@@ -35,18 +39,34 @@ def import_sources_from_file(file_path: str, client: SheetClient):
                     continue
 
                 parts = line.split('|')
-                if len(parts) != 3:
+                if len(parts) < 3:
                     logger.warning("Warning: Skipping malformed line %d: %s", i, line)
                     continue
 
-                url, accent, source_type = [part.strip() for part in parts]
+                # Basic fields 
+                url = parts[0].strip()
+                accent = parts[1].strip()
+                source_type = parts[2].strip()
+                
+                # Optional fields
+                speaker_gender = parts[3].strip() if len(parts) > 3 and parts[3].strip() else None
+                multi_speaker_percentage = None
+                
+                if len(parts) > 4 and parts[4].strip():
+                    try:
+                        multi_speaker_percentage = float(parts[4].strip())
+                        if not (0 <= multi_speaker_percentage <= 100):
+                            logger.warning("Warning: Invalid percentage %s on line %d, ignoring", parts[4], i)
+                            multi_speaker_percentage = None
+                    except ValueError:
+                        logger.warning("Warning: Invalid percentage format '%s' on line %d, ignoring", parts[4], i)
 
                 if url in existing_urls:
                     logger.info("Skipping duplicate URL: %s", url)
                     sources_skipped_count += 1
                 else:
                     logger.info("Adding new source: %s", url)
-                    client.add_source(url, accent, source_type)
+                    client.add_source(url, accent, source_type, speaker_gender, multi_speaker_percentage)
                     existing_urls.add(url)
                     sources_added_count += 1
                     time.sleep(1.5)

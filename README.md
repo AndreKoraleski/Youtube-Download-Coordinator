@@ -7,16 +7,18 @@ The Download Coordinator allows multiple machines to work coordinately to proces
 ### Key Features
 - **Distributed Processing**: Multiple instances can work simultaneously without conflicts
 - **State Management**: Uses Google Sheets as a distributed database
-- **Failure Recovery**: Automatic retry system and dead-letter queue
+- **Failure Recovery**: Automatic retry system and separate dead-letter queues for sources and tasks
+- **Error Tracking**: Detailed error messages stored in spreadsheet columns
 - **Duplicate Prevention**: Avoids processing the same source multiple times
 - **Task Timeout**: Detects and reprocesses stalled tasks
+- **Audio Metadata**: Track speaker gender and multi-speaker audio percentage
 
 ## Installation
 
 ### Prerequisites
 1. **Google Cloud Account** with Google Sheets API enabled
 2. **Service Account** with editor permissions on the spreadsheet
-3. **Python 3.6+**
+3. **Python 3.8+**
 
 ### Library Installation
 Install directly from the Git repository:
@@ -61,22 +63,25 @@ Create a Google Sheets spreadsheet with the following tabs:
 - `Status` (pending/in-progress/done/error)
 - `ClaimedBy` (machine hostname)
 - `ClaimedAt` (timestamp)
-- `Accent` (accent/language)
-- `Type` (type of videos in the source)
+- `Accent` (accent/language, e.g., "pt-BR", "en-US")
+- `Type` (type of content, e.g., "playlist", "channel")
+- `SpeakerGender` (e.g., "male", "female", "mixed", "unknown")
+- `MultiSpeakerPercentage` (0-100, percentage of multi-speaker content)
+- `ErrorMessage` (detailed error information)
 
 **"Video Tasks" Tab** with columns:
 - `ID` (auto-numbered)
-- `SourceID` (source reference)
+- `SourceID` (reference to source ID)
 - `URL` (individual video URL)
 - `Status` (pending/in-progress/done/error)
 - `ClaimedBy` (machine hostname)
 - `ClaimedAt` (timestamp)
-- `Accent` (accent/language)
-- `Type` (same type as the source)
 - `Duration` (duration in seconds)
 - `RetryCount` (attempt counter)
+- `ErrorMessage` (detailed error information)
 
-**"Dead-Letter Queue" Tab** (same columns as Video Tasks)
+**"Dead-Letter Sources" Tab** (same columns as Sources)
+**"Dead-Letter Tasks" Tab** (same columns as Video Tasks)
 
 ### 2. Permissions
 Share the spreadsheet with the Service Account email giving **Editor** permission.
@@ -111,6 +116,11 @@ def my_download_function(url: str):
     print(f"Processing video: {url}")
     # Your download logic here
     # For example: download audio, transcribe, etc.
+    
+    # If an error occurs, raise an exception with descriptive message
+    # The coordinator will automatically capture and store the error
+    if some_error_condition:
+        raise Exception("Specific error description for troubleshooting")
 
 # Main loop of your system
 while True:
@@ -151,7 +161,7 @@ def process_video(url: str):
         
     except Exception as e:
         print(f"Error processing {url}: {e}")
-        raise  # Re-raise so coordinator marks as error
+        raise  # Re-raise so coordinator captures the specific error
 
 # Main loop
 def main():
@@ -180,22 +190,49 @@ if __name__ == "__main__":
 ## Adding New Sources
 
 ### Via Text File
-Create a `sources.txt` file with the format:
+Create a `sources.txt` file with the enhanced format:
+```
+https://youtube.com/playlist?list=PLrAXtmRdnEQy5VFhr|Southern|Entertainment|female|25.5
+https://youtube.com/@examplechannel|Northeastern|Education|male|10.0
+https://youtube.com/watch?v=example|British|Movie|mixed|75.2
+```
+
+Format: `URL|Accent|Type|SpeakerGender|MultiSpeakerPercentage`
+
+**Simplifier:** This simplified format also works:
 ```
 https://youtube.com/playlist?list=PLrAXtmRdnEQy5VFhr|pt-BR|playlist
 https://youtube.com/@examplechannel|en-US|channel
 ```
-Format: `URL|Accent|Type`
 
 ### Programmatically
 ```python
-# Add individual source
+# Add individual source with all metadata
 coordinator.client.add_source(
     url="https://youtube.com/playlist?list=PLexample",
-    accent="pt-BR",
-    source_type="playlist"
+    accent="Goiano",
+    source_type="educational", # Or any other tag that counts as 'type'
+    speaker_gender="female",
+    multi_speaker_percentage=30.5
+)
+
+# Add source with minimal data (backwards compatible)
+coordinator.client.add_source(
+    url="https://youtube.com/playlist?list=PLexample",
+    accent="Paulista", 
+    source_type="podcast"
 )
 ```
+
+### Error Tracking
+- **Detailed Error Messages**: Both sources and tasks  store specific error messages in their `ErrorMessage` column
+- **Separate Dead Letter Queues**: Sources and tasks have their own dead letter queues for failed items
+- **Better Debugging**: Error messages help identify specific issues (network problems, invalid URLs, etc.)
+
+### Audio Metadata
+- **Speaker Gender**: Track the predominant speaker gender (`male`, `female`, `mixed`, `unknown`)
+- **Multi-Speaker Percentage**: Percentage (0-100) indicating how much content has multiple speakers overlapping
+- **Searchable Data**: Use these fields to filter content for specific use cases
 
 ## Advanced Configuration
 
@@ -219,7 +256,8 @@ config = Config(
     # Custom tab names
     sources_worksheet_name='MySources',
     video_tasks_worksheet_name='MyTasks',
-    dead_letter_worksheet_name='FailedTasks'
+    dead_letter_sources_worksheet_name='FailedSources',
+    dead_letter_tasks_worksheet_name='FailedTasks'
 )
 ```
 
@@ -267,26 +305,37 @@ app.conf.beat_schedule = {
 }
 ```
 
-### Installing in Requirements Files
-For `requirements.txt`:
-```
-git+https://github.com/AndreKoraleski/Youtube-Download-Coordinator.git
-```
+## Monitoring and Troubleshooting
 
-For `setup.py` or `pyproject.toml`:
+### Error Analysis
+Check the `ErrorMessage` columns in both Sources and Video Tasks tables to identify patterns:
+- Network connectivity issues
+- Invalid URLs or private content
+- yt-dlp extraction problems
+- Processing function errors
+
+### Dead Letter Queue Management
+Periodically review items in the dead letter queues:
+- Fix underlying issues (network, credentials, etc.)
+- Move items back to pending status in main tables
+- Remove permanently failed items
+
+### Task Status Monitoring
 ```python
-# setup.py
-install_requires=[
-    "youtube-download-coordinator @ git+https://github.com/AndreKoraleski/Youtube-Download-Coordinator.git"
-]
+# Check statistics
+sources = coordinator.client.get_sources()
+tasks = coordinator.client.get_video_tasks()
 
-# pyproject.toml
-dependencies = [
-    "youtube-download-coordinator @ git+https://github.com/AndreKoraleski/Youtube-Download-Coordinator.git"
-]
+pending_sources = len([s for s in sources if s['Status'] == 'pending'])
+pending_tasks = len([t for t in tasks if t['Status'] == 'pending'])
+error_sources = len([s for s in sources if s['Status'] == 'error'])
+error_tasks = len([t for t in tasks if t['Status'] == 'error'])
+
+print(f"Pending sources: {pending_sources}")
+print(f"Pending tasks: {pending_tasks}")
+print(f"Error sources: {error_sources}")
+print(f"Error tasks: {error_tasks}")
 ```
-
-## Monitoring
 
 ### Logs
 The system generates detailed logs. Configure the appropriate level:
@@ -298,44 +347,25 @@ logging.basicConfig(
 )
 ```
 
-### Task Status
-Monitor directly in the Google Sheets or programmatically:
-```python
-# Check statistics
-sources = coordinator.client.get_sources()
-tasks = coordinator.client.get_video_tasks()
-
-pending_sources = len([s for s in sources if s['Status'] == 'pending'])
-pending_tasks = len([t for t in tasks if t['Status'] == 'pending'])
-
-print(f"Pending sources: {pending_sources}")
-print(f"Pending tasks: {pending_tasks}")
-```
-
 ## Troubleshooting
 
 ### Common Errors
 1. **FileNotFoundError**: Check the credentials file path
 2. **SpreadsheetNotFound**: Check spreadsheet ID and permissions
 3. **APIError**: Check if Service Account has editor permissions
+4. **Column Mismatch**: Ensure spreadsheet has all required columns
 
 ### Stalled Task Recovery
 The system automatically detects stalled tasks based on the configured timeout and puts them back in the queue.
 
-### Dead Letter Queue
-Tasks that failed multiple times are moved to the "Dead-Letter Queue" tab for manual analysis.
+### Dead Letter Queue Processing
+Tasks and sources that failed multiple times are moved to their respective "Dead-Letter" tabs for manual analysis.
 
 ## Updating the Library
 
 To update to the latest version:
 ```bash
 pip install --upgrade git+https://github.com/AndreKoraleski/Youtube-Download-Coordinator.git
-```
-
-To install a specific commit or tag:
-```bash
-pip install git+https://github.com/AndreKoraleski/Youtube-Download-Coordinator.git@v1.0.0
-pip install git+https://github.com/AndreKoraleski/Youtube-Download-Coordinator.git@commit-hash
 ```
 
 ## Contributing

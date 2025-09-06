@@ -23,9 +23,6 @@ class TaskManager:
     def __init__(self, sheet_client: SheetClient):
         """
         Initializes the TaskManager with a SheetClient instance.
-
-        Args:
-            sheet_client: An instance of the SheetClient for spreadsheet interactions.
         """
         
         self.client = sheet_client
@@ -37,9 +34,6 @@ class TaskManager:
 
         This method implements a claim-and-verify pattern to ensure only one
         machine can work on a task at a time. It also handles stalled tasks.
-        
-        Returns:
-            A VideoTask object if a task is successfully claimed, otherwise None.
         """
 
         time.sleep(random.uniform(0, self.client.config.claim_jitter_seconds))
@@ -93,9 +87,6 @@ class TaskManager:
     def _find_stalled_task(self) -> Union[Dict, None]:
         """
         Scans the video tasks sheet for any 'in-progress' tasks that have timed out.
-
-        Returns:
-            A dictionary representing the stalled task, or None if none are found.
         """
 
         records = self.client.get_video_tasks()
@@ -115,9 +106,6 @@ class TaskManager:
     def mark_task_as_done(self, task: VideoTask):
         """
         Updates the status of a video task to 'Done' after successful processing.
-
-        Args:
-            task: The VideoTask object to update.
         """
 
         try:
@@ -132,21 +120,29 @@ class TaskManager:
             logger.error(f"Failed to mark task ID {task.id} as done: {e}")
 
 
-    def mark_task_as_error(self, task: VideoTask):
+    def mark_task_as_error(self, task: VideoTask, error_message: str = None):
         """
         Updates the status of a video task to 'Error' if processing fails.
 
         If the task's retry count exceeds the maximum, it moves the task to the
         dead-letter queue. Otherwise, it increments the retry count and resets
         the status to 'pending'.
-
-        Args:
-            task: The VideoTask object to update.
         """
+
+        if error_message and len(error_message) > 500:
+            error_message = error_message[:497] + "..."
 
         if task.retry_count >= self.client.config.max_retries:
             try:
-                self.client.move_row_to_dead_letter(task.id)
+                if error_message:
+                    self.client.update_row(
+                        worksheet=self.client.video_tasks_worksheet,
+                        row_id=task.id,
+                        updates={'ErrorMessage': error_message}
+                    )
+                
+                self.client.move_task_to_dead_letter(task.id)
+                logger.info(f"Task ID {task.id} exceeded max retries and moved to dead letter queue.")
 
             except Exception as e:
                 logger.error(f"Failed to move task ID {task.id} to the dead-letter queue: {e}")
@@ -154,15 +150,29 @@ class TaskManager:
         else:
             try:
                 new_retry_count = task.retry_count + 1
+                updates = {
+                    'Status': self.client.config.STATUS_PENDING,
+                    'RetryCount': new_retry_count
+                }
+                
+                if error_message:
+                    updates['ErrorMessage'] = error_message
+                
                 self.client.update_row(
                     worksheet=self.client.video_tasks_worksheet,
                     row_id=task.id,
-                    updates={
-                        'Status': self.client.config.STATUS_PENDING,
-                        'RetryCount': new_retry_count
-                    }
+                    updates=updates
                 )
-                logger.info(f"Task ID {task.id} failed. Reset to 'pending' with retry count {new_retry_count}.")
+                logger.info(f"Task ID {task.id} failed. Reset to 'pending' with retry count {new_retry_count}. Error: {error_message}")
 
             except Exception as e:
                 logger.error(f"Failed to mark task ID {task.id} as error: {e}")
+
+
+    def handle_task_error(self, task: VideoTask, error: Exception):
+        """
+        Handle task processing errors with proper error messages.
+        """
+        error_msg = str(error)
+        logger.error(f"Task processing failed for ID {task.id}: {error_msg}")
+        self.mark_task_as_error(task, error_msg)
