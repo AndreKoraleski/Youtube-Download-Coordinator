@@ -1,2 +1,2 @@
-from .config import Config              # noqa: F401
+from .config import CoordinatorConfig   # noqa: F401
 from .coordinator import Coordinator    # noqa: F401

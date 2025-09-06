@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 @dataclass
-class Config:
+class CoordinatorConfig:
     """
     Configuration settings for the Download Coordinator.
     """

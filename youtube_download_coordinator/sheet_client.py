@@ -6,7 +6,7 @@ import logging
 import time
 from typing import List, Dict, Union
 
-from .config import Config
+from .config import CoordinatorConfig
 
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ class SheetClient:
     for reading from and writing to the Sources, Video Tasks, and Dead Letter worksheets.
     """
 
-    def __init__(self, config: Config):
+    def __init__(self, config: CoordinatorConfig):
         """
         Initializes the SheetClient, authenticates with Google Sheets, and
         opens the required worksheets.

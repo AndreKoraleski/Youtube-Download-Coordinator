@@ -90,10 +90,10 @@ Share the spreadsheet with the Service Account email giving **Editor** permissio
 
 ### Basic Configuration
 ```python
-from youtube_download_coordinator import Config, Coordinator
+from youtube_download_coordinator import CoordinatorConfig, Coordinator
 
 # Configure the system
-config = Config(
+config = CoordinatorConfig(
     credentials_file="path/to/service-account.json",
     spreadsheet_id="your-spreadsheet-id-here",
     sources_file_path="sources.txt"  # Optional
@@ -136,13 +136,13 @@ while True:
 ```python
 import time
 import logging
-from download_coordinator import Config, Coordinator
+from download_coordinator import CoordinatorConfig, Coordinator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 # Configuration
-config = Config(
+config = CoordinatorConfig(
     credentials_file="credentials.json",
     spreadsheet_id="1ABC123-your-spreadsheet-id",
     sources_file_path="new_sources.txt"
@@ -250,7 +250,7 @@ config = Config(
 
 ### Customize Spreadsheet Names
 ```python
-config = Config(
+config = CoordinatorConfig(
     credentials_file="credentials.json",
     spreadsheet_id="your-id",
     # Custom tab names
@@ -267,10 +267,10 @@ config = Config(
 ```python
 # worker.py
 import os
-from download_coordinator import Config, Coordinator
+from download_coordinator import CoordinatorConfig, Coordinator
 from my_system import process_complete_video
 
-config = Config(
+config = CoordinatorConfig(
     credentials_file=os.getenv("GOOGLE_CREDENTIALS"),
     spreadsheet_id=os.getenv("SPREADSHEET_ID")
 )
@@ -285,7 +285,7 @@ while True:
 ### With Celery/RQ
 ```python
 from celery import Celery
-from download_coordinator import Config, Coordinator
+from download_coordinator import CoordinatorConfig, Coordinator
 
 app = Celery('video_processor')
 

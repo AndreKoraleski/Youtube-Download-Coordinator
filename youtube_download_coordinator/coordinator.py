@@ -4,7 +4,7 @@ from typing import Callable
 from .sheet_client import SheetClient
 from .source_manager import SourceManager
 from .task_manager import TaskManager
-from .config import Config
+from .config import CoordinatorConfig
 from .add_sources import import_sources_from_file
 
 
@@ -16,7 +16,7 @@ class Coordinator:
     Manages a distributed task queue using Google Sheets.
     """
 
-    def __init__(self, config: Config):
+    def __init__(self, config: CoordinatorConfig):
         """Initializes all necessary management classes."""
         
         self.client = SheetClient(config)
