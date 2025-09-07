@@ -259,7 +259,7 @@ class SheetClient:
         return None
 
 
-    def move_task_to_dead_letter(self, row_id: str):
+    def move_task_to_dead_letter(self, row_id: str, error_message: str = ""):
         """
         Moves a row from the video tasks worksheet to the dead-letter worksheet.
         """
@@ -282,17 +282,20 @@ class SheetClient:
         try:
             self._wait_for_api()
             self.task_dead_letter_worksheet.append_row(row_to_move, value_input_option='USER_ENTERED')
+            self.update_row(
+                worksheet=self.task_dead_letter_worksheet,
+                row_id=row_id,
+                updates={'LastError': error_message}
+            )
 
             self._wait_for_api()
             self.video_tasks_worksheet.delete_rows(row_index)
             logger.info(f"Successfully moved row with ID {row_id} to the dead-letter queue.")
-        
         except APIError as e:
             logger.error(f"API Error moving row to dead-letter queue: {e}")
             raise
 
-
-    def move_source_to_dead_letter(self, row_id: str):
+    def move_source_to_dead_letter(self, row_id: str, error_message: str = ""):
         """
         Moves a row from the sources worksheet to the source dead-letter worksheet.
         """
@@ -315,6 +318,11 @@ class SheetClient:
         try:
             self._wait_for_api()
             self.source_dead_letter_worksheet.append_row(row_to_move, value_input_option='USER_ENTERED')
+            self.update_row(
+                worksheet=self.source_dead_letter_worksheet,
+                row_id=row_id,
+                updates={'LastError': error_message}
+            )
 
             self._wait_for_api()
             self.sources_worksheet.delete_rows(row_index)

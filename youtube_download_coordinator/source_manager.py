@@ -210,6 +210,13 @@ class SourceManager:
         """Resets a stalled source to 'pending' and increments its retry count."""
         try:
             new_retry_count = int(source_data.get('RetryCount', 0)) + 1
+            if new_retry_count > self.client.config.max_retries:
+                self.client.move_source_to_dead_letter(
+                    row_id=str(source_data.get('ID')),
+                    error_message="Source stalled after maximum retries."
+                )
+                return
+
             self.client.update_row(
                 worksheet=self.client.sources_worksheet,
                 row_id=str(source_data.get('ID')),
@@ -241,17 +248,11 @@ class SourceManager:
 
     def mark_source_as_error(self, source: Source, error_message: str = ""):
         """Updates the status of a source to 'error' if expansion fails."""
-        
         is_fatal = any(sub in error_message for sub in self.client.config.fatal_error_substrings)
 
         if source.retry_count >= self.client.config.max_retries or is_fatal:
             try:
-                self.client.move_source_to_dead_letter(str(source.id))
-                self.client.update_row(
-                    worksheet=self.client.source_dead_letter_worksheet,
-                    row_id=str(source.id),
-                    updates={'LastError': error_message}
-                )
+                self.client.move_source_to_dead_letter(str(source.id), error_message)
 
             except Exception as e:
                 logger.error(f"Failed to move source ID {source.id} to the dead-letter queue: {e}")

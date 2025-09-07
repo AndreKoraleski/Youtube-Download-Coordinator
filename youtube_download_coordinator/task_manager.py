@@ -41,14 +41,23 @@ class TaskManager:
         stalled_task_data = self._find_stalled_task()
         
         if stalled_task_data:
-            self.client.update_row(
-                worksheet=self.client.video_tasks_worksheet,
-                row_id=str(stalled_task_data.get('ID')),
-                updates={'Status': self.client.config.STATUS_PENDING}
-            )
-
-            logger.info(f"Reset stalled task with ID {stalled_task_data.get('ID')} to 'pending'.")
-            time.sleep(self.client.config.api_wait_seconds)
+            new_retry_count = int(stalled_task_data.get('RetryCount', 0)) + 1
+            if new_retry_count > self.client.config.max_retries:
+                self.client.move_task_to_dead_letter(
+                    row_id=str(stalled_task_data.get('ID')),
+                    error_message="Task stalled after maximum retries."
+                )
+            else:
+                self.client.update_row(
+                    worksheet=self.client.video_tasks_worksheet,
+                    row_id=str(stalled_task_data.get('ID')),
+                    updates={
+                        'Status': self.client.config.STATUS_PENDING,
+                        'RetryCount': new_retry_count
+                    }
+                )
+                logger.info(f"Reset stalled task with ID {stalled_task_data.get('ID')} to 'pending'.")
+                time.sleep(self.client.config.api_wait_seconds)
 
         task_data = self.client.find_next_pending_task()
         if not task_data:
@@ -134,7 +143,7 @@ class TaskManager:
 
         if task.retry_count >= self.client.config.max_retries or is_fatal:
             try:
-                self.client.move_task_to_dead_letter(str(task.id))
+                self.client.move_task_to_dead_letter(str(task.id), error_message)
 
             except Exception as e:
                 logger.error(f"Failed to move task ID {task.id} to the dead-letter queue: {e}")
