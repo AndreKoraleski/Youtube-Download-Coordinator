@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 
 @dataclass
@@ -17,7 +17,8 @@ class Config:
     # --- Worksheet Names ---
     sources_worksheet_name: str = 'Sources'
     video_tasks_worksheet_name: str = 'Video Tasks'
-    dead_letter_worksheet_name: str = 'Dead-Letter Queue'
+    source_dead_letter_worksheet_name: str = 'Dead-Letter Sources'
+    task_dead_letter_worksheet_name: str = 'Dead-Letter Tasks'
 
     # --- Status Constants ---
     STATUS_PENDING: str = 'pending'
@@ -30,6 +31,21 @@ class Config:
     stalled_task_timeout_minutes: int = 60
     max_retries: int = 3
     video_task_batch_size: int = 25
+    
+    # --- Error Handling ---
+    fatal_error_substrings: List[str] = field(default_factory=lambda: [
+        "Sign in to confirm your age",        # Age-restricted
+        "Private video",                      # Private video
+        "Video unavailable",                  # Generic unavailable
+        "This video is not available",        # Region-locked/unavailable
+        "This live event has ended",          # Dead livestream
+        "This live stream recording is not available",
+        "The uploader has not made this video available in your country",  # Geo-block
+        "This video has been removed for violating YouTube's Terms of Service",  # Copyright / DMCA takedown
+        "This video is no longer available"   # Removed by uploader
+])
+
+
 
     # --- Hashing Settings ---
     hash_file: str = field(init=False)

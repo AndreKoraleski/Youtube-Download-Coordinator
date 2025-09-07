@@ -4,6 +4,7 @@ import time
 from typing import Dict, List, Union, Iterator, Set
 
 import yt_dlp
+from yt_dlp.utils import DownloadError
 
 from .sheet_client import SheetClient
 from .source import Source
@@ -78,7 +79,7 @@ class SourceManager:
         validated VideoTask objects. This is a generator for memory efficiency.
         """
 
-        ydl_opts = {'quiet': True, 'extract_flat': False, 'force_generic_extractor': False}
+        ydl_opts = {'quiet': True, 'extract_flat': False, 'force_generic_extractor': False, 'ignoreerrors': True}
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -98,7 +99,7 @@ class SourceManager:
                         status=self.client.config.STATUS_PENDING,
                         duration=entry.get('duration'),
                     )
-        except yt_dlp.DownloadError as e:
+        except DownloadError as e:
             logger.error(f"yt-dlp error expanding source {source.url}: {e}")
             raise  
 
@@ -148,9 +149,16 @@ class SourceManager:
             self.mark_source_as_done(str(source.id))
             return True
 
-        except Exception:
-            logger.exception(f"Failed to expand source ID {source.id}.")
-            self.mark_source_as_error(source)
+        except DownloadError as e:
+            error_message = str(e)
+            logger.error(f"Failed to expand source ID {source.id} due to a download error: {error_message}")
+            self.mark_source_as_error(source, error_message)
+            return False
+        
+        except Exception as e:
+            error_message = str(e)
+            logger.exception(f"An unexpected error occurred while expanding source ID {source.id}.")
+            self.mark_source_as_error(source, error_message)
             return False
 
 
@@ -164,7 +172,7 @@ class SourceManager:
         new_rows = [
             [
                 task.id, task.source_id, task.url, task.status, task.duration,
-                task.claimed_by, task.claimed_at, task.retry_count
+                task.claimed_by, task.claimed_at, task.retry_count, task.last_error
             ] for task in tasks_batch
         ]
 
@@ -231,14 +239,36 @@ class SourceManager:
             logger.error(f"Failed to mark source ID {source_id} as done: {e}")
 
 
-    def mark_source_as_error(self, source_id: str):
+    def mark_source_as_error(self, source: Source, error_message: str = ""):
         """Updates the status of a source to 'error' if expansion fails."""
-        try:
-            self.client.update_row(
-                worksheet=self.client.sources_worksheet,
-                row_id=source_id,
-                updates={'Status': self.client.config.STATUS_ERROR}
-            )
-            logger.info(f"Source ID {source_id} marked as error.")
-        except Exception as e:
-            logger.error(f"Failed to mark source ID {source_id} as error: {e}")
+        
+        is_fatal = any(sub in error_message for sub in self.client.config.fatal_error_substrings)
+
+        if source.retry_count >= self.client.config.max_retries or is_fatal:
+            try:
+                self.client.move_source_to_dead_letter(str(source.id))
+                self.client.update_row(
+                    worksheet=self.client.source_dead_letter_worksheet,
+                    row_id=str(source.id),
+                    updates={'LastError': error_message}
+                )
+
+            except Exception as e:
+                logger.error(f"Failed to move source ID {source.id} to the dead-letter queue: {e}")
+
+        else:
+            try:
+                new_retry_count = source.retry_count + 1
+                self.client.update_row(
+                    worksheet=self.client.sources_worksheet,
+                    row_id=str(source.id),
+                    updates={
+                        'Status': self.client.config.STATUS_PENDING,
+                        'RetryCount': new_retry_count,
+                        'LastError': error_message
+                    }
+                )
+                logger.info(f"Source ID {source.id} failed. Reset to 'pending' with retry count {new_retry_count}.")
+
+            except Exception as e:
+                logger.error(f"Failed to mark source ID {source.id} as error: {e}")

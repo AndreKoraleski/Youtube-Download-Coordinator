@@ -37,8 +37,9 @@ class SheetClient:
 
             self.sources_worksheet: Worksheet = spreadsheet.worksheet(config.sources_worksheet_name)
             self.video_tasks_worksheet: Worksheet = spreadsheet.worksheet(config.video_tasks_worksheet_name)
-            self.dead_letter_worksheet: Worksheet = spreadsheet.worksheet(config.dead_letter_worksheet_name)
-            
+            self.source_dead_letter_worksheet: Worksheet = spreadsheet.worksheet(config.source_dead_letter_worksheet_name)
+            self.task_dead_letter_worksheet: Worksheet = spreadsheet.worksheet(config.task_dead_letter_worksheet_name)
+
             self.last_api_call_time = time.monotonic()
 
             logger.info("Successfully connected to Google Sheets.")
@@ -258,7 +259,7 @@ class SheetClient:
         return None
 
 
-    def move_row_to_dead_letter(self, row_id: str):
+    def move_task_to_dead_letter(self, row_id: str):
         """
         Moves a row from the video tasks worksheet to the dead-letter worksheet.
         """
@@ -280,11 +281,44 @@ class SheetClient:
 
         try:
             self._wait_for_api()
-            self.dead_letter_worksheet.append_row(row_to_move, value_input_option='USER_ENTERED')
+            self.task_dead_letter_worksheet.append_row(row_to_move, value_input_option='USER_ENTERED')
 
             self._wait_for_api()
             self.video_tasks_worksheet.delete_rows(row_index)
             logger.info(f"Successfully moved row with ID {row_id} to the dead-letter queue.")
+        
         except APIError as e:
             logger.error(f"API Error moving row to dead-letter queue: {e}")
+            raise
+
+
+    def move_source_to_dead_letter(self, row_id: str):
+        """
+        Moves a row from the sources worksheet to the source dead-letter worksheet.
+        """
+        self._wait_for_api()
+        all_records = self.sources_worksheet.get_all_records()
+        row_index = -1
+        row_to_move = None
+
+        for index, record in enumerate(all_records):
+            if str(record.get('ID')) == str(row_id):
+                row_index = index + 2
+                self._wait_for_api()
+                row_to_move = self.sources_worksheet.row_values(row_index)
+                break
+
+        if not row_to_move:
+            logger.warning(f"Source row with ID {row_id} not found.")
+            return
+
+        try:
+            self._wait_for_api()
+            self.source_dead_letter_worksheet.append_row(row_to_move, value_input_option='USER_ENTERED')
+
+            self._wait_for_api()
+            self.sources_worksheet.delete_rows(row_index)
+            logger.info(f"Successfully moved source row with ID {row_id} to the source dead-letter queue.")
+        except APIError as e:
+            logger.error(f"API Error moving source row to dead-letter queue: {e}")
             raise

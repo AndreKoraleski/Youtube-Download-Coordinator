@@ -78,6 +78,7 @@ class Coordinator:
         Returns:
             bool: True if a task was successfully processed, False if no tasks were available.
         """
+        
         self._ensure_tasks_are_available()
 
         logger.info("--- Attempting to claim a video task ---")
@@ -93,8 +94,8 @@ class Coordinator:
             logger.info("Processing function successfully completed for task ID %s.", task.id)
             self.task_manager.mark_task_as_done(task)
 
-        except Exception:
+        except Exception as e:
             logger.exception("Processing function failed for task ID %s.", task.id)
-            self.task_manager.mark_task_as_error(task)
+            self.task_manager.mark_task_as_error(task, str(e))
 
         return True

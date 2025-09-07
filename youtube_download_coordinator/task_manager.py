@@ -121,7 +121,7 @@ class TaskManager:
             logger.error(f"Failed to mark task ID {task.id} as done: {e}")
 
 
-    def mark_task_as_error(self, task: VideoTask):
+    def mark_task_as_error(self, task: VideoTask, error_message: str = ""):
         """
         Updates the status of a video task to 'Error' if processing fails.
 
@@ -130,9 +130,11 @@ class TaskManager:
         the status to 'pending'.
         """
 
-        if task.retry_count >= self.client.config.max_retries:
+        is_fatal = any(sub in error_message for sub in self.client.config.fatal_error_substrings)
+
+        if task.retry_count >= self.client.config.max_retries or is_fatal:
             try:
-                self.client.move_row_to_dead_letter(str(task.id))
+                self.client.move_task_to_dead_letter(str(task.id))
 
             except Exception as e:
                 logger.error(f"Failed to move task ID {task.id} to the dead-letter queue: {e}")
@@ -145,7 +147,8 @@ class TaskManager:
                     row_id=str(task.id),
                     updates={
                         'Status': self.client.config.STATUS_PENDING,
-                        'RetryCount': new_retry_count
+                        'RetryCount': new_retry_count,
+                        'LastError': error_message
                     }
                 )
                 logger.info(f"Task ID {task.id} failed. Reset to 'pending' with retry count {new_retry_count}.")

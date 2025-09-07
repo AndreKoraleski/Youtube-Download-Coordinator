@@ -20,6 +20,7 @@ class VideoTask:
     claimed_by: Optional[str] = None
     claimed_at: Optional[str] = None
     retry_count: int = 0
+    last_error: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'VideoTask':
@@ -35,5 +36,6 @@ class VideoTask:
             duration=int(data.get('Duration')) if data.get('Duration') is not None else None,
             claimed_by=data.get('ClaimedBy'),
             claimed_at=data.get('ClaimedAt'),
-            retry_count=int(data.get('RetryCount', 0))
+            retry_count=int(data.get('RetryCount', 0)),
+            last_error=data.get('LastError')
         )
