@@ -50,3 +50,4 @@ credentials.json
 # Testing
 main.py
 sources.txt
+sources_hash.txt
