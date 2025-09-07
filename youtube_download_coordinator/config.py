@@ -1,5 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
+
 
 @dataclass
 class Config:
@@ -27,3 +29,12 @@ class Config:
     claim_jitter_seconds: int = 5
     stalled_task_timeout_minutes: int = 60
     max_retries: int = 3
+
+    # --- Hashing Settings ---
+    hash_file: str = field(init=False)
+
+    def __post_init__(self):
+        base_dir = Path(__file__).resolve().parent
+        hashes_dir = base_dir / "hashes"
+        hashes_dir.mkdir(parents=True, exist_ok=True)
+        self.hash_file = str(hashes_dir / "sources_hash.txt")

@@ -25,6 +25,8 @@ class Source:
     source_type: Optional[str] = None
     multispeaker_percentage: Optional[float] = None
 
+    retry_count: int = 0
+
     @classmethod
     def from_dict(cls, data: Dict) -> 'Source':
         """
@@ -42,5 +44,6 @@ class Source:
             accent=data.get('Accent'),
             content_type=data.get('ContentType'),
             source_type=data.get('Type'),
-            multispeaker_percentage=float(data['MultispeakerPercentage']) if 'MultispeakerPercentage' in data and data['MultispeakerPercentage'] not in (None, '') else None
+            multispeaker_percentage=float(data['MultispeakerPercentage']) if 'MultispeakerPercentage' in data and data['MultispeakerPercentage'] not in (None, '') else None,
+            retry_count=int(data.get('RetryCount', 0)) if 'RetryCount' in data and data['RetryCount'] not in (None, '') else 0
         )

@@ -1,7 +1,7 @@
 import logging
 import random
 import time
-from typing import List, Union
+from typing import Dict, List, Union
 
 import yt_dlp
 
@@ -20,6 +20,7 @@ class SourceManager:
     Manages the process of expanding a YouTube source (playlist or channel)
     into individual video tasks on the spreadsheet.
     """
+
     def __init__(self, sheet_client: SheetClient):
         """
         Initializes the SourceManager with a SheetClient instance.
@@ -36,6 +37,18 @@ class SourceManager:
         """
 
         time.sleep(random.uniform(0, self.client.config.claim_jitter_seconds))
+
+        stalled_source_data = self._find_stalled_source()
+        
+        if stalled_source_data:
+            self.client.update_row(
+            worksheet=self.client.sources_worksheet,
+            row_id=str(stalled_source_data.get('ID')),
+            updates={'Status': self.client.config.STATUS_PENDING, 'ClaimedBy': None, 'ClaimedAt': None, 'RetryCount': int(stalled_source_data.get('RetryCount', 0)) + 1}
+            )
+
+            logger.info(f"Reset stalled source with ID {stalled_source_data.get('ID')} to 'pending'.")
+            time.sleep(self.client.config.api_wait_seconds)
 
         source_data = self.client.find_next_pending_source()
 
@@ -156,6 +169,24 @@ class SourceManager:
         except Exception as e:
             logger.error(f"Failed to add video tasks to the sheet: {e}")
     
+    def _find_stalled_source(self) -> Union[Dict, None]:
+        """
+        Scans the Sources sheet for any 'in-progress' tasks that have timed out.
+        """
+
+        records = self.client.get_sources()
+        current_time_epoch = time.time()
+        timeout_seconds = self.client.config.stalled_task_timeout_minutes * 60
+
+        for record in records:
+            if record.get('Status') == self.client.config.STATUS_IN_PROGRESS:
+                claimed_at_str = record.get('ClaimedAt')
+                if claimed_at_str:
+                    claimed_at_epoch = time.mktime(time.strptime(claimed_at_str, "%Y-%m-%d %H:%M:%S"))
+                    if (current_time_epoch - claimed_at_epoch) > timeout_seconds:
+                        return record
+        return None
+
     def mark_source_as_done(self, source_id: str):
         """
         Updates the status of a source to 'done' after successful expansion.
