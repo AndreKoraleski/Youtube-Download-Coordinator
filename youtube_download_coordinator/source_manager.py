@@ -85,7 +85,11 @@ class SourceManager:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info_dict = ydl.extract_info(source.url, download=False)
                 
-                entries = info_dict.get('entries', [info_dict] if info_dict else [])
+                if not info_dict:
+                    logger.warning(f"No information extracted from source {source.id}. It may be empty or private.")
+                    return
+
+                entries = info_dict.get('entries', [info_dict])
                 
                 for entry in entries:
                     if not (entry and entry.get('id') and entry.get('webpage_url')):
