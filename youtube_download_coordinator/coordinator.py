@@ -49,14 +49,14 @@ class Coordinator:
 
     def _run_source_expansion_phase(self):
         """
-        Finds a new source, expands it, and adds tasks to the sheet.
+        Finds a new source and orchestrates the expansion and task creation process.
         If no source is found, attempts to import new ones.
         """
-        
+
         source = self.source_manager.get_next_source_to_expand()
 
         if not source:
-            logger.info("No pending sources available to expand. Checking file for import...")
+            logger.info("No pending sources available. Checking file for new imports...")
             self._import_sources()
             source = self.source_manager.get_next_source_to_expand()
 
@@ -64,24 +64,9 @@ class Coordinator:
             logger.warning("Still no pending sources to expand after import attempt.")
             return
 
-        try:
-            logger.info("Expanding source ID: %s | URL: %s", source.id, source.url)
-            video_tasks = self.source_manager.expand_source(source)
-
-            if not video_tasks:
-                logger.info("Source expansion did not result in video tasks. Marking as done.")
-                self.source_manager.mark_source_as_done(str(source.id))
-                return
-
-            logger.info("Adding %d new video tasks to the sheet.", len(video_tasks))
-            self.source_manager.add_video_tasks_to_sheet(video_tasks)
-            self.source_manager.mark_source_as_done(str(source.id))
-            logger.info("Source ID %s processed successfully.", source.id)
-
-        except Exception:
-            logger.exception("Error during source expansion for source ID %s.", source.id)
-            self.source_manager.mark_source_as_error(str(source.id))
-
+        logger.info(f"Processing source expansion for ID: {source.id} | URL: {source.url}")
+        self.source_manager.process_source_expansion(source)
+        
 
     def process_next_task(self, processing_function: Callable[[str], None]) -> bool:
         """
@@ -107,7 +92,7 @@ class Coordinator:
             processing_function(task.url)
             logger.info("Processing function successfully completed for task ID %s.", task.id)
             self.task_manager.mark_task_as_done(task)
-            
+
         except Exception:
             logger.exception("Processing function failed for task ID %s.", task.id)
             self.task_manager.mark_task_as_error(task)

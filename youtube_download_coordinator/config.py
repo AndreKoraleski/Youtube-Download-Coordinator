@@ -29,6 +29,7 @@ class Config:
     claim_jitter_seconds: int = 5
     stalled_task_timeout_minutes: int = 60
     max_retries: int = 3
+    video_task_batch_size: int = 25
 
     # --- Hashing Settings ---
     hash_file: str = field(init=False)
