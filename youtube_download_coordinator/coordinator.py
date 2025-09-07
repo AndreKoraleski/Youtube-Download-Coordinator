@@ -70,17 +70,17 @@ class Coordinator:
 
             if not video_tasks:
                 logger.info("Source expansion did not result in video tasks. Marking as done.")
-                self.source_manager.mark_source_as_done(source.id)
+                self.source_manager.mark_source_as_done(str(source.id))
                 return
 
             logger.info("Adding %d new video tasks to the sheet.", len(video_tasks))
             self.source_manager.add_video_tasks_to_sheet(video_tasks)
-            self.source_manager.mark_source_as_done(source.id)
+            self.source_manager.mark_source_as_done(str(source.id))
             logger.info("Source ID %s processed successfully.", source.id)
 
         except Exception:
             logger.exception("Error during source expansion for source ID %s.", source.id)
-            self.source_manager.mark_source_as_error(source.id)
+            self.source_manager.mark_source_as_error(str(source.id))
 
 
     def process_next_task(self, processing_function: Callable[[str], None]) -> bool:
@@ -107,6 +107,7 @@ class Coordinator:
             processing_function(task.url)
             logger.info("Processing function successfully completed for task ID %s.", task.id)
             self.task_manager.mark_task_as_done(task)
+            
         except Exception:
             logger.exception("Processing function failed for task ID %s.", task.id)
             self.task_manager.mark_task_as_error(task)

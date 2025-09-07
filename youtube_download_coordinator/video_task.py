@@ -16,13 +16,10 @@ class VideoTask:
     source_id: str
     url: str
     status: str
+    duration: Optional[int] = None
     claimed_by: Optional[str] = None
     claimed_at: Optional[str] = None
-    accent: Optional[str] = None
-    task_type: Optional[str] = None
-    duration: Optional[int] = None
     retry_count: int = 0
-
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'VideoTask':
@@ -35,10 +32,8 @@ class VideoTask:
             source_id=data.get('SourceID', ''),
             url=data.get('URL', ''),
             status=data.get('Status', 'pending'),
+            duration=int(data.get('Duration')) if data.get('Duration') is not None else None,
             claimed_by=data.get('ClaimedBy'),
             claimed_at=data.get('ClaimedAt'),
-            accent=data.get('Accent'),
-            task_type=data.get('Type'),
-            duration=data.get('Duration'),
             retry_count=int(data.get('RetryCount', 0))
         )

@@ -14,11 +14,16 @@ class Source:
     id: str
     url: str
     status: str
+    
     claimed_by: Optional[str] = None
     claimed_at: Optional[str] = None
+    
+    name: Optional[str] = None
+    gender: Optional[str] = None
     accent: Optional[str] = None
+    content_type: Optional[str] = None
     source_type: Optional[str] = None
-
+    multispeaker_percentage: Optional[float] = None
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'Source':
@@ -32,6 +37,10 @@ class Source:
             status=data.get('Status', 'pending'),
             claimed_by=data.get('ClaimedBy'),
             claimed_at=data.get('ClaimedAt'),
+            name=data.get('Name'),
+            gender=data.get('Gender'),
             accent=data.get('Accent'),
-            source_type=data.get('Type')
+            content_type=data.get('ContentType'),
+            source_type=data.get('Type'),
+            multispeaker_percentage=float(data['MultispeakerPercentage']) if 'MultispeakerPercentage' in data and data['MultispeakerPercentage'] not in (None, '') else None
         )

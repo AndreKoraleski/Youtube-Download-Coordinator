@@ -10,7 +10,7 @@ class Config:
     credentials_file: str
     spreadsheet_id: str
     sources_file_path: Optional[str] = None
-    api_wait_seconds: float = 6.0
+    api_wait_seconds: float = 3.0
 
     # --- Worksheet Names ---
     sources_worksheet_name: str = 'Sources'

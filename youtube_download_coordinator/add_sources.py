@@ -12,9 +12,9 @@ def import_sources_from_file(file_path: str, client: SheetClient):
     """
     Reads a text file to add new sources to the Google Sheet.
 
-    This function parses a file where each line should be in the format
-    URL|Accent|Type, checks for duplicates, and adds only new sources
-    to the 'Sources' sheet.
+    This function parses a file where each line contains '|'-separated values.
+    The parameters are passed to the client strictly in the order they appear.
+    The first parameter of each line is treated as the URL for duplicate checking.
     """
 
     try:
@@ -34,32 +34,35 @@ def import_sources_from_file(file_path: str, client: SheetClient):
                 if not line:
                     continue
 
-                parts = line.split('|')
-                if len(parts) != 3:
-                    logger.warning("Warning: Skipping malformed line %d: %s", i, line)
-                    continue
+                parts = [part.strip() for part in line.split('|')]
 
-                url, accent, source_type = [part.strip() for part in parts]
+                if not parts or not parts[0]:
+                    logger.warning("Warning: Skipping line %d as it's empty or missing a URL.", i)
+                    continue
+                
+                url = parts[0]
 
                 if url in existing_urls:
                     logger.info("Skipping duplicate URL: %s", url)
                     sources_skipped_count += 1
+                
                 else:
                     logger.info("Adding new source: %s", url)
-                    client.add_source(url, accent, source_type)
+                    
+                    client.add_source(*parts)
+                    
                     existing_urls.add(url)
                     sources_added_count += 1
-                    time.sleep(1.5)
+
+                    time.sleep(client.config.api_wait_seconds)
 
         summary_message = (
-            "\n--- Import Summary ---\n"
-            f"Sources successfully added: {sources_added_count}\n"
-            f"Sources skipped (duplicates): {sources_skipped_count}\n"
-            "---------------------------"
+            f"Import Summary: {sources_added_count} sources added, {sources_skipped_count} duplicates skipped."
         )
         logger.info(summary_message)
 
     except FileNotFoundError:
         logger.error("Error: The file '%s' was not found.", file_path)
+        
     except Exception:
         logger.exception("An unexpected error occurred while importing from '%s'", file_path)

@@ -44,4 +44,9 @@ Thumbs.db
 
 # Secrets
 credentials.json
+*json
 *.env
+
+# Testing
+main.py
+sources.txt

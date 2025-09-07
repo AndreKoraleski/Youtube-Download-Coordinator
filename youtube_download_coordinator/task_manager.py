@@ -23,9 +23,6 @@ class TaskManager:
     def __init__(self, sheet_client: SheetClient):
         """
         Initializes the TaskManager with a SheetClient instance.
-
-        Args:
-            sheet_client: An instance of the SheetClient for spreadsheet interactions.
         """
         
         self.client = sheet_client
@@ -37,9 +34,6 @@ class TaskManager:
 
         This method implements a claim-and-verify pattern to ensure only one
         machine can work on a task at a time. It also handles stalled tasks.
-        
-        Returns:
-            A VideoTask object if a task is successfully claimed, otherwise None.
         """
 
         time.sleep(random.uniform(0, self.client.config.claim_jitter_seconds))
@@ -49,25 +43,26 @@ class TaskManager:
         if stalled_task_data:
             self.client.update_row(
                 worksheet=self.client.video_tasks_worksheet,
-                row_id=int(stalled_task_data.get('ID')),
+                row_id=str(stalled_task_data.get('ID')),
                 updates={'Status': self.client.config.STATUS_PENDING}
             )
+
             logger.info(f"Reset stalled task with ID {stalled_task_data.get('ID')} to 'pending'.")
-            time.sleep(2)
+            time.sleep(self.client.config.api_wait_seconds)
 
         task_data = self.client.find_next_pending_task()
         if not task_data:
             logger.info("No pending video tasks found.")
             return None
 
-        task_id = int(task_data.get('ID'))
+        task_id = str(task_data.get('ID'))
         hostname = get_machine_hostname()
         timestamp = get_current_timestamp()
 
         try:
             self.client.update_row(
                 worksheet=self.client.video_tasks_worksheet,
-                row_id=task_id,
+                row_id=str(task_id),
                 updates={
                     'Status': self.client.config.STATUS_IN_PROGRESS,
                     'ClaimedBy': hostname,
@@ -75,7 +70,7 @@ class TaskManager:
                 }
             )
 
-            re_read_task = self.client._get_task_by_id(task_id)
+            re_read_task = self.client._get_task_by_id(str(task_id))
 
             if re_read_task and re_read_task.get('ClaimedBy') == hostname:
                 logger.info(f"Successfully claimed task ID {task_id}.")
@@ -93,9 +88,6 @@ class TaskManager:
     def _find_stalled_task(self) -> Union[Dict, None]:
         """
         Scans the video tasks sheet for any 'in-progress' tasks that have timed out.
-
-        Returns:
-            A dictionary representing the stalled task, or None if none are found.
         """
 
         records = self.client.get_video_tasks()
@@ -115,15 +107,12 @@ class TaskManager:
     def mark_task_as_done(self, task: VideoTask):
         """
         Updates the status of a video task to 'Done' after successful processing.
-
-        Args:
-            task: The VideoTask object to update.
         """
 
         try:
             self.client.update_row(
                 worksheet=self.client.video_tasks_worksheet,
-                row_id=task.id,
+                row_id=str(task.id),
                 updates={'Status': self.client.config.STATUS_DONE}
             )
             logger.info(f"Task ID {task.id} marked as 'Done'.")
@@ -139,14 +128,11 @@ class TaskManager:
         If the task's retry count exceeds the maximum, it moves the task to the
         dead-letter queue. Otherwise, it increments the retry count and resets
         the status to 'pending'.
-
-        Args:
-            task: The VideoTask object to update.
         """
 
         if task.retry_count >= self.client.config.max_retries:
             try:
-                self.client.move_row_to_dead_letter(task.id)
+                self.client.move_row_to_dead_letter(str(task.id))
 
             except Exception as e:
                 logger.error(f"Failed to move task ID {task.id} to the dead-letter queue: {e}")
@@ -156,7 +142,7 @@ class TaskManager:
                 new_retry_count = task.retry_count + 1
                 self.client.update_row(
                     worksheet=self.client.video_tasks_worksheet,
-                    row_id=task.id,
+                    row_id=str(task.id),
                     updates={
                         'Status': self.client.config.STATUS_PENDING,
                         'RetryCount': new_retry_count

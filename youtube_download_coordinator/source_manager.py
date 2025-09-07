@@ -42,14 +42,14 @@ class SourceManager:
         if not source_data:
             return None
         
-        source_id = int(source_data.get('ID'))
+        source_id = str(source_data.get('ID'))
         hostname = get_machine_hostname()
         timestamp = get_current_timestamp()
 
         try:
             self.client.update_row(
                 worksheet=self.client.sources_worksheet,
-                row_id=source_id,
+                row_id=str(source_id),
                 updates={
                     'Status': self.client.config.STATUS_IN_PROGRESS,
                     'ClaimedBy': hostname,
@@ -57,7 +57,7 @@ class SourceManager:
                 }
             )
 
-            re_read_source = self.client._get_source_by_id(source_id)
+            re_read_source = self.client._get_source_by_id(str(source_id))
 
             if re_read_source and re_read_source.get('ClaimedBy') == hostname:
                 logger.info(f"Successfully claimed source ID {source_id}.")
@@ -93,25 +93,27 @@ class SourceManager:
                     for entry in info_dict['entries']:
                         if entry and entry.get('webpage_url'):
                             task = VideoTask(
-                                id='',
-                                source_id=source.id,
+                                id=str(entry.get('id', 0)),
+                                source_id=str(source.id),
                                 url=entry.get('webpage_url'),
                                 status=self.client.config.STATUS_PENDING,
-                                accent=source.accent,
-                                task_type=source.source_type,
                                 duration=entry.get('duration'),
+                                claimed_by=None,
+                                claimed_at=None,
                                 retry_count=0
                             )
+
                             video_tasks.append(task)
+
                 else:
                     task = VideoTask(
-                        id=0,
-                        source_id=source.id,
+                        id=str(info_dict.get('id', 0)),
+                        source_id=str(source.id),
                         url=info_dict.get('webpage_url'),
                         status=self.client.config.STATUS_PENDING,
-                        accent=source.accent,
-                        task_type=source.source_type,
                         duration=info_dict.get('duration'),
+                        claimed_by=None,
+                        claimed_at=None,
                         retry_count=0
                     )
                     video_tasks.append(task)
@@ -139,22 +141,22 @@ class SourceManager:
                 task.source_id,
                 task.url,
                 task.status,
+                task.duration,
                 task.claimed_by,
                 task.claimed_at,
-                task.accent,
-                task.task_type,
-                task.duration,
                 task.retry_count
             ]
+
             new_rows.append(row)
 
         try:
             self.client.append_rows(self.client.video_tasks_worksheet, new_rows)
             logger.info(f"Successfully added {len(new_rows)} new video tasks to the sheet.")
+
         except Exception as e:
             logger.error(f"Failed to add video tasks to the sheet: {e}")
     
-    def mark_source_as_done(self, source_id: int):
+    def mark_source_as_done(self, source_id: str):
         """
         Updates the status of a source to 'done' after successful expansion.
         """
@@ -162,7 +164,7 @@ class SourceManager:
         try:
             self.client.update_row(
                 worksheet=self.client.sources_worksheet,
-                row_id=source_id,
+                row_id=str(source_id),
                 updates={'Status': self.client.config.STATUS_DONE}
             )
             logger.info(f"Source ID {source_id} marked as done.")
@@ -170,7 +172,7 @@ class SourceManager:
         except Exception as e:
             logger.error(f"Failed to mark source ID {source_id} as done: {e}")
 
-    def mark_source_as_error(self, source_id: int):
+    def mark_source_as_error(self, source_id: str):
         """
         Updates the status of a source to 'error' if expansion fails.
         """
@@ -178,7 +180,7 @@ class SourceManager:
         try:
             self.client.update_row(
                 worksheet=self.client.sources_worksheet,
-                row_id=source_id,
+                row_id=str(source_id),
                 updates={'Status': self.client.config.STATUS_ERROR}
             )
             logger.info(f"Source ID {source_id} marked as error.")
