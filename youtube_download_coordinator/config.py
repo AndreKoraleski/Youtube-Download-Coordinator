@@ -12,6 +12,8 @@ class Config:
     credentials_file: str
     spreadsheet_id: str
     sources_file_path: Optional[str] = None
+    results_dir: str = 'results'
+    selected_dir: str = 'selected'
     api_wait_seconds: float = 3.0
 
     # --- Worksheet Names ---

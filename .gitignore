@@ -49,5 +49,25 @@ credentials.json
 
 # Testing
 main.py
+select_file.py
 sources.txt
 sources_hash.txt
+
+# Lock files
+*.lock
+Pipfile.lock
+poetry.lock
+pdm.lock
+uv.lock
+package-lock.json
+npm-shrinkwrap.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+Cargo.lock
+Gemfile.lock
+composer.lock
+Podfile.lock
+mix.lock
+pubspec.lock
+.terraform.lock.hcl

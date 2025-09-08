@@ -1,6 +1,9 @@
 import logging
 import time
-from typing import Callable
+from typing import Callable, List
+from pathlib import Path
+import shutil
+from filelock import FileLock
 
 from .sheet_client import SheetClient
 from .source_manager import SourceManager
@@ -95,7 +98,7 @@ class Coordinator:
             bool: True if a task was successfully processed, False if no tasks were available.
         """
         
-        self._perform_health_check() # Perform health check at the start of each cycle
+        self._perform_health_check()
         self._ensure_tasks_are_available()
 
         logger.info("--- Attempting to claim a video task ---")
@@ -116,3 +119,56 @@ class Coordinator:
             self.task_manager.mark_task_as_error(task, str(e))
 
         return True
+
+
+    def _get_result_folders_by_source_id(self, source_id: str) -> List[Path]:
+        """
+        Fetches the results for a given source ID by listing the corresponding
+        directories in the results directory.
+        """
+
+        logger.info(f"Fetching results for source ID: {source_id}")
+        tasks = self.client.get_tasks_by_source_id(source_id)
+        
+        done_tasks = [
+            task for task in tasks 
+            if task.get('Status') == self.config.STATUS_DONE and task.get('ClaimedBy') == get_machine_hostname()
+        ]
+
+        results_path = Path(self.config.results_dir)
+        results_path.mkdir(exist_ok=True)
+
+        result_folders = []
+        for task in done_tasks:
+            task_id = str(task.get('ID'))
+            task_folder = results_path / task_id
+            if task_folder.is_dir():
+                result_folders.append(task_folder)
+        
+        logger.info(f"Found {len(result_folders)} result folders for source ID {source_id} on this machine.")
+        return result_folders
+
+
+    def manage_results(self, source_id: str = None):
+        """
+        Atomically moves result folders to a destination directory and back.
+        """
+
+        dest_path = Path(self.config.selected_dir)
+        dest_path.mkdir(exist_ok=True)
+
+        results_path = Path(self.config.results_dir)
+        lock_path = Path(".results.lock")
+
+        with FileLock(lock_path):
+            for item in dest_path.iterdir():
+                if item.is_dir():
+                    shutil.move(str(item), str(results_path / item.name))
+                    logger.info(f"Moved back {item.name} to results.")
+
+            if source_id:
+                folders_to_move = self._get_result_folders_by_source_id(source_id)
+
+                for folder in folders_to_move:
+                    shutil.move(str(folder), str(dest_path / folder.name))
+                    logger.info(f"Moved {folder.name} to {dest_path}.")

@@ -367,3 +367,12 @@ class SheetClient:
         except APIError as e:
             logger.error(f"API Error moving source row to dead-letter queue: {e}")
             raise
+    
+
+    def get_tasks_by_source_id(self, source_id: str) -> List[Dict]:
+        """
+        Retrieves all video tasks for a given source ID.
+        """
+        
+        all_tasks = self.get_video_tasks()
+        return [task for task in all_tasks if str(task.get('SourceID')) == str(source_id)]
