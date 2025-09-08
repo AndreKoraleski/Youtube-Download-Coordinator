@@ -14,7 +14,7 @@ class Config:
     sources_file_path: Optional[str] = None
     results_dir: str = 'results'
     selected_dir: str = 'selected'
-    api_wait_seconds: float = 3.0
+    api_wait_seconds: float = 1.0
 
     # --- Worksheet Names ---
     sources_worksheet_name: str = 'Sources'

@@ -52,6 +52,8 @@ main.py
 select_file.py
 sources.txt
 sources_hash.txt
+/results/
+/selected/
 
 # Lock files
 *.lock
