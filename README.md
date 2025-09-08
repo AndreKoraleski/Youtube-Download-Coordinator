@@ -1,82 +1,68 @@
-# YouTube Download Coordinator
+# Coordenador de Download do YouTube
+Um coordenador de tarefas distribuído para download de vídeos do YouTube (ou execução de qualquer outras tarefas relacionadas a vídeos do YouTube) usando Google Planilhas como uma fila de tarefas centralizada. Este sistema permite que múltiplas máquinas trabalhem juntas, expandindo automaticamente canais/playlists do YouTube em tarefas de vídeos individuais e coordenando o trabalho entre os trabalhadores.
 
-A distributed task coordinator for downloading YouTube videos (or performing any other YouTube-video-related tasks) using Google Sheets as a centralized task queue. This system allows multiple machines to work together, automatically expanding YouTube channels/playlists into individual video tasks and coordinating the work across workers.
+## Funcionalidades
+- **Processamento Distribuído de Tarefas**: Múltiplas máquinas podem trabalhar na mesma fila simultaneamente
+- **Integração com Google Planilhas**: Usa Google Planilhas como uma fila de tarefas centralizada e legível para humanos
+- **Expansão Automática de Fontes**: Converte canais, playlists e vídeos individuais do YouTube em tarefas individuais
+- **Tolerância a Falhas**: Lida com tarefas travadas, tentativas de reexecução e filas de carta morta para conteúdo problemático
+- **Importação de Fontes via Arquivo**: Importa automaticamente novas fontes de arquivos de texto
+- **Monitoramento de Saúde dos Trabalhadores**: Rastreia status e atividade dos trabalhadores
+- **Gerenciamento de Resultados**: Organiza o conteúdo baixado e fornece ferramentas para manipulação de resultados
 
-## Features
+## Pré-requisitos
+- Python 3.8 ou superior
+- Conta do Google Cloud Platform com API do Sheets habilitada
+- Credenciais de Conta de Serviço do Google com acesso à sua planilha de destino
 
-- **Distributed Task Processing**: Multiple machines can work on the same queue simultaneously
-- **Google Sheets Integration**: Uses Google Sheets as a centralized, human-readable task queue
-- **Automatic Source Expansion**: Converts YouTube channels, playlists, and individual videos into individual tasks
-- **Fault Tolerance**: Handles stalled tasks, retries, and dead-letter queues for problematic content
-- **File-based Source Import**: Automatically imports new sources from text files
-- **Worker Health Monitoring**: Tracks worker status and activity
-- **Result Management**: Organizes downloaded content and provides tools for result handling
-
-## Prerequisites
-
-- Python 3.8 or higher
-- Google Cloud Platform account with Sheets API enabled
-- Google Service Account credentials with access to your target spreadsheet
-
-## Installation
-
-
-
-### Option 1: Install from Source
+## Instalação
+### Opção 1: Instalar do código-fonte como biblioteca usando pip
 ```bash
-git clone https://github.com/AndreKoraleski/Youtube-Download-Coordinator.git
-cd Youtube-Download-Coordinator
-pip install -e .
+pip install git+https://github.com/AndreKoraleski/Youtube-Download-Coordinator.git
 ```
+### Estamos considerando adicionar uma forma de instalar via PyPI.
 
-### We are considering adding a PyPI way to install.
+## Configuração
+### 1. Configuração do Google Planilhas
+1. Crie uma Planilha do Google com as seguintes abas:
+   - **Sources**: Onde canais/playlists do YouTube são adicionados
+   - **Video Tasks**: Tarefas individuais de download de vídeo
+   - **Dead-Letter Sources**: Fontes que falharam após tentativas máximas
+   - **Dead-Letter Tasks**: Tarefas que falharam após tentativas máximas  
+   - **Workers**: Status dos trabalhadores e monitoramento de saúde
 
-## Setup
+2. Configure as colunas necessárias em cada aba:
 
-### 1. Google Sheets Setup
-
-1. Create a Google Spreadsheet with the following worksheets:
-   - **Sources**: Where YouTube channels/playlists are added
-   - **Video Tasks**: Individual video download tasks
-   - **Dead-Letter Sources**: Failed sources after max retries
-   - **Dead-Letter Tasks**: Failed tasks after max retries  
-   - **Workers**: Worker status and health monitoring
-
-2. Set up the required columns in each worksheet:
-
-**Sources Worksheet:**
+**Aba Sources:**
 ```
 ID | URL | Status | ClaimedBy | ClaimedAt | Name | Gender | Accent | ContentType | Type | MultispeakerPercentage | RetryCount | LastError
 ```
 
-**Video Tasks Worksheet:**
+**Aba Video Tasks:**
 ```
 ID | SourceID | URL | Status | Duration | ClaimedBy | ClaimedAt | RetryCount | LastError
 ```
 
-**Workers Worksheet:**
+**Aba Workers:**
 ```
 Hostname | LastSeen | Status
 ```
 
-### 2. Google Cloud Credentials
+### 2. Credenciais do Google Cloud
+1. Crie um Projeto no Google Cloud
+2. Habilite a API do Google Planilhas
+3. Crie uma Conta de Serviço e baixe o arquivo de credenciais JSON
+4. Compartilhe sua Planilha do Google com o email da conta de serviço (dê permissões de Editor)
 
-1. Create a Google Cloud Project
-2. Enable the Google Sheets API
-3. Create a Service Account and download the JSON credentials file
-4. Share your Google Spreadsheet with the service account email (give Editor permissions)
-
-### 3. Configuration
-
-Create your configuration and initialize the coordinator:
-
+### 3. Configuração
+Crie sua configuração e inicialize o coordenador:
 ```python
 from youtube_download_coordinator import Config, Coordinator
 
 config = Config(
-    credentials_file="path/to/your/credentials.json",
-    spreadsheet_id="your_google_sheets_id",
-    sources_file_path="sources.txt",  # Optional: for file-based source import
+    credentials_file="caminho/para/suas/credenciais.json",
+    spreadsheet_id="id_da_sua_planilha_google",
+    sources_file_path="sources.txt",  # Opcional: para importação de fontes via arquivo
     results_dir="downloads",
     selected_dir="selected"
 )
@@ -84,19 +70,17 @@ config = Config(
 coordinator = Coordinator(config)
 ```
 
-## Usage
-
-### Basic Usage Pattern
-
+## Uso
+### Padrão de Uso Básico
 ```python
 import yt_dlp
 from youtube_download_coordinator import Config, Coordinator
 
 def download_video(url: str):
-    """Your custom processing function"""
+    """Sua função personalizada de processamento"""
     ydl_opts = {
         'outtmpl': f'{config.results_dir}/%(id)s/%(title)s.%(ext)s',
-        # Add your yt-dlp options here
+        # Adicione suas opções do yt-dlp aqui
     }
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -104,127 +88,117 @@ def download_video(url: str):
 
 config = Config(
     credentials_file="credentials.json",
-    spreadsheet_id="your_sheets_id"
+    spreadsheet_id="id_da_sua_planilha"
 )
 
 coordinator = Coordinator(config)
 
-# Process tasks continuously
+# Processar tarefas continuamente
 while True:
     if not coordinator.process_next_task(download_video):
-        print("No tasks available, waiting...")
+        print("Nenhuma tarefa disponível, aguardando...")
         time.sleep(30)
 ```
 
-### File-based Source Import
-
-Create a `sources.txt` file with one source per line:
+### Importação de Fontes via Arquivo
+Crie um arquivo `sources.txt` com uma fonte por linha:
 ```
-https://www.youtube.com/@channel1|Channel Name|Female|American|Educational|Channel|15.5
-https://www.youtube.com/playlist?list=PLxxx|Playlist Name|Male|British|Entertainment|Playlist|5.0
-https://www.youtube.com/watch?v=xxxxx|Video Title|Female|Canadian|Tutorial|Video|0
+https://www.youtube.com/@channel1|Nome do Canal|Female|American|Educational|Channel|15.5
+https://www.youtube.com/playlist?list=PLxxx|Nome da Playlist|Male|British|Entertainment|Playlist|5.0
+https://www.youtube.com/watch?v=xxxxx|Título do Vídeo|Female|Canadian|Tutorial|Video|0
 ```
+Formato: `URL|Nome|Gênero|Sotaque|TipoConteúdo|Tipo|PorcentagemMultifalante`
 
-Format: `URL|Name|Gender|Accent|ContentType|Type|MultispeakerPercentage`
+O coordenador importará automaticamente novas fontes quando o arquivo for alterado.
 
-The coordinator will automatically import new sources when the file changes.
-
-### Result Management
-
+### Gerenciamento de Resultados
 ```python
-# Move results for a specific source to the selected directory
+# Mover resultados de uma fonte específica para o diretório selecionado
 coordinator.manage_results(source_id="123")
 
-# Move all results back to the main results directory
+# Mover todos os resultados de volta para o diretório principal de resultados
 coordinator.manage_results()
 ```
 
-## Configuration Options
+## Opções de Configuração
+A classe `Config` suporta personalização extensiva:
 
-The `Config` class supports extensive customization:
+### Configurações Principais
+- `credentials_file`: Caminho para o arquivo JSON da Conta de Serviço do Google
+- `spreadsheet_id`: ID do documento Google Planilhas
+- `sources_file_path`: Caminho opcional para arquivo de importação de fontes
+- `results_dir`: Diretório para conteúdo baixado (padrão: 'results')
+- `selected_dir`: Diretório para resultados selecionados (padrão: 'selected')
+- `api_wait_seconds`: Atraso entre chamadas da API (padrão: 1.0)
 
-### Core Settings
-- `credentials_file`: Path to Google Service Account JSON file
-- `spreadsheet_id`: Google Sheets document ID
-- `sources_file_path`: Optional path to sources import file
-- `results_dir`: Directory for downloaded content (default: 'results')
-- `selected_dir`: Directory for selected results (default: 'selected')
-- `api_wait_seconds`: Delay between API calls (default: 1.0)
+### Nomes das Abas
+- `sources_worksheet_name`: Nome da aba de fontes (padrão: 'Sources')
+- `video_tasks_worksheet_name`: Nome da aba de tarefas de vídeo (padrão: 'Video Tasks')
+- `source_dead_letter_worksheet_name`: Fontes carta morta (padrão: 'Dead-Letter Sources')
+- `task_dead_letter_worksheet_name`: Tarefas carta morta (padrão: 'Dead-Letter Tasks')
+- `workers_worksheet_name`: Monitoramento de trabalhadores (padrão: 'Workers')
 
-### Worksheet Names
-- `sources_worksheet_name`: Name of sources worksheet (default: 'Sources')
-- `video_tasks_worksheet_name`: Name of video tasks worksheet (default: 'Video Tasks')
-- `source_dead_letter_worksheet_name`: Dead letter sources (default: 'Dead-Letter Sources')
-- `task_dead_letter_worksheet_name`: Dead letter tasks (default: 'Dead-Letter Tasks')
-- `workers_worksheet_name`: Worker monitoring (default: 'Workers')
-
-### Status Values
+### Valores de Status
 - `STATUS_PENDING`: 'pending'
 - `STATUS_IN_PROGRESS`: 'in-progress'  
 - `STATUS_DONE`: 'done'
 - `STATUS_ERROR`: 'error'
 - `STATUS_ACTIVE`: 'active'
 
-### Distributed System Tuning
-- `claim_jitter_seconds`: Random delay when claiming tasks (default: 5)
-- `stalled_task_timeout_minutes`: Timeout for stalled tasks (default: 60)
-- `max_retries`: Maximum retry attempts (default: 3)
-- `video_task_batch_size`: Batch size for adding tasks (default: 25)
-- `health_check_interval_seconds`: Worker health check frequency (default: 60)
+### Ajuste do Sistema Distribuído
+- `claim_jitter_seconds`: Atraso aleatório ao reivindicar tarefas (padrão: 5)
+- `stalled_task_timeout_minutes`: Timeout para tarefas travadas (padrão: 60)
+- `max_retries`: Tentativas máximas de reexecução (padrão: 3)
+- `video_task_batch_size`: Tamanho do lote para adicionar tarefas (padrão: 25)
+- `health_check_interval_seconds`: Frequência de verificação de saúde dos trabalhadores (padrão: 60)
 
-### Error Handling
-- `fatal_error_substrings`: List of error messages that trigger immediate dead-lettering
+### Tratamento de Erros
+- `fatal_error_substrings`: Lista de mensagens de erro que acionam carta morta imediata
 
-## Architecture
+## Arquitetura
+### Fluxo de Tarefas
+1. **Sources**: URLs do YouTube (canais, playlists, vídeos) são adicionadas à aba Sources
+2. **Expansão**: Trabalhadores reivindicam fontes e as expandem em tarefas de vídeos individuais
+3. **Processamento**: Trabalhadores reivindicam tarefas de vídeo e executam sua função personalizada de processamento
+4. **Resultados**: Tarefas concluídas são marcadas como feitas, tarefas com falha são reexecutadas ou enviadas para carta morta
 
-### Task Flow
-1. **Sources**: YouTube URLs (channels, playlists, videos) are added to the Sources worksheet
-2. **Expansion**: Workers claim sources and expand them into individual video tasks
-3. **Processing**: Workers claim video tasks and execute your custom processing function
-4. **Results**: Completed tasks are marked as done, failed tasks are retried or dead-lettered
+### Tolerância a Falhas
+- **Recuperação de Tarefas Travadas**: Detecta e recupera automaticamente tarefas travadas
+- **Lógica de Reexecução**: Tarefas com falha são reexecutadas até o limite máximo de tentativas
+- **Filas de Carta Morta**: Tarefas/fontes permanentemente com falha são movidas para abas separadas
+- **Verificação de Reivindicação**: Garante que apenas um trabalhador pode reivindicar uma tarefa por vez
 
-### Fault Tolerance
-- **Stalled Task Recovery**: Automatically detects and recovers stalled tasks
-- **Retry Logic**: Failed tasks are retried up to the maximum retry limit
-- **Dead Letter Queues**: Permanently failed tasks/sources are moved to separate worksheets
-- **Claim Verification**: Ensures only one worker can claim a task at a time
+### Coordenação de Trabalhadores  
+- **Monitoramento de Saúde**: Trabalhadores relatam periodicamente seu status
+- **Reivindicações com Jitter**: Atrasos aleatórios previnem problemas de enxame
+- **Operações Atômicas**: Atualizações de planilha usam padrões atômicos de reivindicação e verificação
 
-### Worker Coordination  
-- **Health Monitoring**: Workers periodically report their status
-- **Jittered Claims**: Random delays prevent thundering herd problems
-- **Atomic Operations**: Sheet updates use atomic claim-and-verify patterns
+## Monitoramento
+Monitore seu sistema através da interface do Google Planilhas:
+- **Aba Sources**: Rastreie o progresso da expansão de fontes
+- **Aba Video Tasks**: Monitore o status de tarefas individuais
+- **Aba Workers**: Visualize trabalhadores ativos e sua última atividade
+- **Abas Dead Letter**: Revise tarefas com falha que precisam de atenção
 
-## Monitoring
+## Solução de Problemas
+### Problemas Comuns
+**Erros de Autenticação**
+- Verifique se o caminho do arquivo JSON da conta de serviço está correto
+- Certifique-se de que a conta de serviço tem acesso à sua planilha
+- Verifique se a API do Sheets está habilitada no Google Cloud
 
-Monitor your system through the Google Sheets interface:
+**Nenhuma Tarefa Encontrada**
+- Verifique se os nomes das abas correspondem à sua configuração
+- Verifique se as fontes têm status 'pending'
+- Certifique-se de que sua planilha tem os cabeçalhos de coluna corretos
 
-- **Sources worksheet**: Track source expansion progress
-- **Video Tasks worksheet**: Monitor individual task status
-- **Workers worksheet**: View active workers and their last activity
-- **Dead Letter worksheets**: Review failed tasks that need attention
+**Tarefas Ficando Presas**
+- Verifique a configuração `stalled_task_timeout_minutes`
+- Revise as filas de carta morta para padrões de erro
+- Verifique se sua função de processamento lida com erros adequadamente
 
-## Troubleshooting
-
-### Common Issues
-
-**Authentication Errors**
-- Verify your service account JSON file path is correct
-- Ensure the service account has access to your spreadsheet
-- Check that the Sheets API is enabled in Google Cloud
-
-**No Tasks Found**
-- Verify worksheet names match your configuration
-- Check that sources have 'pending' status
-- Ensure your spreadsheet has the correct column headers
-
-**Tasks Getting Stuck**
-- Check the `stalled_task_timeout_minutes` setting
-- Review the dead letter queues for error patterns
-- Verify your processing function handles errors properly
-
-### Debug Logging
-
-Enable detailed logging:
+### Log de Debug
+Habilite log detalhado:
 ```python
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -232,15 +206,11 @@ logger = logging.getLogger('youtube_download_coordinator')
 logger.setLevel(logging.DEBUG)
 ```
 
-## Contributing
+## Contribuindo
+Contribuições são bem-vindas! Por favor, sinta-se à vontade para enviar um Pull Request. Para mudanças importantes, abra primeiro uma issue para discutir o que você gostaria de alterar.
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+## Licença
+Este projeto está licenciado sob a Licença Pública Geral GNU v3.0 - veja o arquivo [LICENSE](LICENSE) para detalhes.
 
-## License
-
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Built with [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube content extraction
-
+## Agradecimentos
+- Construído com [yt-dlp](https://github.com/yt-dlp/yt-dlp) para extração de conteúdo (não download) do YouTube
