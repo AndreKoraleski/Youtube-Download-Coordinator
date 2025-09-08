@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "youtube-download-coordinator"
+version = "0.2.0"
+authors = [
+  { name="Andre Koraleski", email="andrekorale@gmail.com" },
+]
+description = "A distributed task coordinator for downloading (or doing any other task) on YouTube videos using Google Sheets"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "GPL-3.0-only" }
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "gspread>=6.0.0",
+    "yt-dlp>=2024.0.0",
+    "google-auth-oauthlib>=1.2.0",
+    "filelock>=3.9.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/AndreKoraleski/Youtube-Download-Coordinator"
+
+[tool.setuptools.packages.find]
+exclude = ["tests*", "docs*", "examples*"]
