@@ -1,13 +1,13 @@
 import gspread
 from gspread import Worksheet
-from gspread.exceptions import APIError, SpreadsheetNotFound
+from gspread.exceptions import APIError, SpreadsheetNotFound, WorksheetNotFound
 
 import logging
 import time
 from typing import List, Dict, Union
 
 from .config import Config
-
+from .utils.time_utils import get_current_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,12 @@ class SheetClient:
             self.video_tasks_worksheet: Worksheet = spreadsheet.worksheet(config.video_tasks_worksheet_name)
             self.source_dead_letter_worksheet: Worksheet = spreadsheet.worksheet(config.source_dead_letter_worksheet_name)
             self.task_dead_letter_worksheet: Worksheet = spreadsheet.worksheet(config.task_dead_letter_worksheet_name)
+            
+            try:
+                self.workers_worksheet: Worksheet = spreadsheet.worksheet(config.workers_worksheet_name)
+
+            except WorksheetNotFound:
+                logger.warning(f"Worksheet '{config.workers_worksheet_name}' not found. Please create it.")
 
             self.last_api_call_time = time.monotonic()
 
@@ -74,6 +80,37 @@ class SheetClient:
         self.last_api_call_time = time.monotonic()
 
 
+    def update_worker_status(self, hostname: str, status: str):
+        """
+        Updates the status of a worker in the 'Workers' worksheet.
+        """
+
+        if not hasattr(self, 'workers_worksheet'):
+            logger.error("Workers worksheet not initialized. Cannot update worker status.")
+            return
+
+        try:
+            self._wait_for_api()
+            worker_cell = self.workers_worksheet.find(hostname, in_column=1)
+
+            timestamp = get_current_timestamp()
+
+            if worker_cell:
+                self.workers_worksheet.update_cell(worker_cell.row, 2, timestamp)
+                self.workers_worksheet.update_cell(worker_cell.row, 3, status)
+                logger.info(f"Updated worker '{hostname}' status to '{status}'.")
+
+            else:
+                self.workers_worksheet.append_row([hostname, timestamp, status])
+                logger.info(f"Registered new worker '{hostname}' with status '{status}'.")
+
+        except APIError as e:
+            logger.error(f"API Error updating worker status: {e}")
+
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while updating worker status: {e}")
+
+    # ... (the rest of the methods in sheet_client.py) ...
     def get_sources(self) -> List[Dict]:
         """
         Retrieves all records from the Sources worksheet.

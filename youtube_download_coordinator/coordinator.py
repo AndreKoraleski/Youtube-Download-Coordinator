@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Callable
 
 from .sheet_client import SheetClient
@@ -6,7 +7,7 @@ from .source_manager import SourceManager
 from .task_manager import TaskManager
 from .config import Config
 from .add_sources import import_sources_from_file
-
+from .utils.system_utils import get_machine_hostname
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +20,26 @@ class Coordinator:
     def __init__(self, config: Config):
         """Initializes all necessary management classes."""
         
+        self.config = config
         self.client = SheetClient(config)
         self.source_manager = SourceManager(self.client)
         self.task_manager = TaskManager(self.client)
         self.sources_file_path = config.sources_file_path
+        self.last_health_check_time = 0
         logger.info("Coordinator initialized.")
+
+
+    def _perform_health_check(self):
+        """
+        Updates the worker's status in the spreadsheet to show it's active.
+        """
+        
+        now = time.monotonic()
+        if (now - self.last_health_check_time) > self.config.health_check_interval_seconds:
+            logger.info("Performing health check...")
+            hostname = get_machine_hostname()
+            self.client.update_worker_status(hostname, self.config.STATUS_ACTIVE)
+            self.last_health_check_time = now
 
 
     def _ensure_tasks_are_available(self):
@@ -79,6 +95,7 @@ class Coordinator:
             bool: True if a task was successfully processed, False if no tasks were available.
         """
         
+        self._perform_health_check() # Perform health check at the start of each cycle
         self._ensure_tasks_are_available()
 
         logger.info("--- Attempting to claim a video task ---")

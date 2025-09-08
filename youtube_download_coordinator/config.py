@@ -19,18 +19,21 @@ class Config:
     video_tasks_worksheet_name: str = 'Video Tasks'
     source_dead_letter_worksheet_name: str = 'Dead-Letter Sources'
     task_dead_letter_worksheet_name: str = 'Dead-Letter Tasks'
+    workers_worksheet_name: str = 'Workers'  
 
     # --- Status Constants ---
     STATUS_PENDING: str = 'pending'
     STATUS_IN_PROGRESS: str = 'in-progress'
     STATUS_DONE: str = 'done'
     STATUS_ERROR: str = 'error'
+    STATUS_ACTIVE: str = 'active' 
 
     # --- Distributed System Tuning ---
     claim_jitter_seconds: int = 5
     stalled_task_timeout_minutes: int = 60
     max_retries: int = 3
     video_task_batch_size: int = 25
+    health_check_interval_seconds: int = 60 # New health check interval
     
     # --- Error Handling ---
     fatal_error_substrings: List[str] = field(default_factory=lambda: [
